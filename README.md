@@ -4,7 +4,7 @@
 This is a multi-tenant Data Ingestion Service that connects to a Shopify store, pulls live data (Orders, Customers), stores it in a PostgreSQL database, and visualizes it on a dashboard.
 
 **Deployed Link:** https://xeno-eta.vercel.app/
-* *
+
 **Demo Video:** [PASTE_YOUR_LOOM_VIDEO_LINK_HERE]
 
 ## 2. Architecture
