@@ -1,4 +1,4 @@
-// This solves the ORM and RDBMS requirement [cite: 17, 37]
+// 1. Config for Vercel & Local
 generator client {
   provider      = "prisma-client-js"
   binaryTargets = ["native", "rhel-openssl-3.0.x"]
@@ -9,30 +9,20 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+// 2. The Data Models
 model Tenant {
   id        String   @id @default(uuid())
-  storeName String
-  domain    String   @unique // e.g., my-store.myshopify.com
-  token     String   // The API Access Token
+  name      String
+  email     String   @unique  // <--- The code needs this line to work!
   orders    Order[]
-  products  Product[]
   customers Customer[]
 }
 
 model Order {
   id          String   @id @default(uuid())
-  shopifyId   String   // Original ID from Shopify
-  totalPrice  Float
-  createdAt   DateTime
-  currency    String
-  tenantId    String
-  tenant      Tenant   @relation(fields: [tenantId], references: [id])
-}
-
-model Product {
-  id          String   @id @default(uuid())
   shopifyId   String
-  title       String
+  amount      Float
+  date        DateTime
   tenantId    String
   tenant      Tenant   @relation(fields: [tenantId], references: [id])
 }
@@ -40,8 +30,8 @@ model Product {
 model Customer {
   id          String   @id @default(uuid())
   shopifyId   String
-  email       String
-  totalSpent  Float    // Needed for "Top 5 customers" [cite: 26]
+  name        String
+  totalSpent  Float
   tenantId    String
   tenant      Tenant   @relation(fields: [tenantId], references: [id])
 }
