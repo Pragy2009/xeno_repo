@@ -11,6 +11,7 @@
     "test": "vitest",
     "test:watch": "vitest --watch",
     "test:coverage": "vitest run --coverage",
+    "postinstall": "prisma generate",
     "ci": "npm run typecheck && npm run build && npm audit --production"
   },
   "dependencies": {
