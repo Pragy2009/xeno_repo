@@ -16,7 +16,8 @@ export async function POST(req: Request) {
     });
 
     // 2. Fetch Orders from Shopify
-    const response = await axios.get(`https://${shopUrl}/admin/api/2023-10/orders.json?status=any`, {
+    // FIX: Added 'limit=10' to prevent Vercel Timeout
+    const response = await axios.get(`https://${shopUrl}/admin/api/2023-10/orders.json?status=any&limit=10`, {
       headers: { 'X-Shopify-Access-Token': accessToken }
     });
 
@@ -24,7 +25,6 @@ export async function POST(req: Request) {
 
     // 3. Save Data to DB
     for (const order of orders) {
-      // Save Order
       await prisma.order.create({
         data: {
           shopifyId: String(order.id),
@@ -34,12 +34,21 @@ export async function POST(req: Request) {
         }
       });
 
-      // Save Customer (if exists)
       if (order.customer) {
+        // FIX: Handle missing names safely
+        const firstName = order.customer.first_name || '';
+        const lastName = order.customer.last_name || '';
+        let customerName = `${firstName} ${lastName}`.trim();
+        
+        // If name is empty, use email or "Guest"
+        if (!customerName) {
+            customerName = order.customer.email || "Guest Customer";
+        }
+
         await prisma.customer.create({
           data: {
             shopifyId: String(order.customer.id),
-            name: `${order.customer.first_name} ${order.customer.last_name}`,
+            name: customerName,
             totalSpent: parseFloat(order.customer.total_spent || '0'),
             tenantId: tenant.id
           }
@@ -49,6 +58,7 @@ export async function POST(req: Request) {
 
     return NextResponse.json({ success: true, message: `Synced ${orders.length} orders!` });
   } catch (error: any) {
+    console.error("Sync Error:", error.message);
     return NextResponse.json({ success: false, error: error.message }, { status: 500 });
   }
 }
