@@ -32,7 +32,7 @@ To run this locally:
 
 1.  Clone the repo:
     ```bash
-    git clone [PASTE_YOUR_GITHUB_REPO_LINK_HERE]
+    git clone (https://github.com/Pragy2009/xeno_repo)
     cd xeno-assignment
     ```
 2.  Install dependencies:
