@@ -11,27 +11,36 @@ datasource db {
 
 // 2. The Data Models
 model Tenant {
-  id        String   @id @default(uuid())
+  id        Int      @id @default(autoincrement())
   name      String
-  email     String   @unique  // <--- The code needs this line to work!
+  email     String   @unique
+  createdAt DateTime @default(now())
+
   orders    Order[]
   customers Customer[]
 }
 
-model Order {
-  id          String   @id @default(uuid())
-  shopifyId   String
-  amount      Float
-  date        DateTime
-  tenantId    String
-  tenant      Tenant   @relation(fields: [tenantId], references: [id])
+model Customer {
+  id         Int     @id @default(autoincrement())
+  shopifyId  String  @unique
+  name       String
+  totalSpent Float   @default(0)
+  tenantId   Int
+  tenant     Tenant  @relation(fields: [tenantId], references: [id])
+  orders     Order[]
 }
 
-model Customer {
-  id          String   @id @default(uuid())
-  shopifyId   String
-  name        String
-  totalSpent  Float
-  tenantId    String
-  tenant      Tenant   @relation(fields: [tenantId], references: [id])
+model Order {
+  id        Int      @id @default(autoincrement())
+  shopifyId String   @unique
+  amount    Float    @default(0)
+  date      DateTime
+  tenantId  Int
+  tenant    Tenant   @relation(fields: [tenantId], references: [id])
+
+  // Link the order to a customer (nullable if order might have no customer)
+  customerId Int? // nullable to allow guest orders without a customer row
+  customer   Customer? @relation(fields: [customerId], references: [id])
+
+  createdAt DateTime @default(now())
 }
