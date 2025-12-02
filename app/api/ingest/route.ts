@@ -8,14 +8,13 @@ export async function POST(req: Request) {
   const { shopUrl, accessToken, email } = await req.json();
 
   try {
-    // 1. Create or Update Tenant
     const tenant = await prisma.tenant.upsert({
       where: { email: email },
       update: {},
       create: { name: shopUrl, email: email }
     });
 
-    // 2. Fetch Orders from Shopify (Limit 10 to prevent timeout)
+    // Fetch orders (limit 10)
     const response = await axios.get(`https://${shopUrl}/admin/api/2023-10/orders.json?status=any&limit=10`, {
       headers: { 'X-Shopify-Access-Token': accessToken }
     });
@@ -23,15 +22,11 @@ export async function POST(req: Request) {
     const orders = response.data.orders;
 
     for (const order of orders) {
-      // --- FIX: CHECK IF ORDER EXISTS BEFORE CREATING ---
+      // 1. Create Order if not exists
       const existingOrder = await prisma.order.findFirst({
-        where: { 
-          shopifyId: String(order.id),
-          tenantId: tenant.id 
-        }
+        where: { shopifyId: String(order.id), tenantId: tenant.id }
       });
 
-      // Only create if it does NOT exist
       if (!existingOrder) {
         await prisma.order.create({
           data: {
@@ -43,7 +38,7 @@ export async function POST(req: Request) {
         });
       }
 
-      // --- NAME FINDING LOGIC ---
+      // --- IMPROVED NAME LOGIC ---
       let finalName = "Guest"; 
       let customerId = "guest_" + order.id;
 
@@ -51,25 +46,25 @@ export async function POST(req: Request) {
         customerId = String(order.customer.id);
         const first = order.customer.first_name || '';
         const last = order.customer.last_name || '';
-        if (first || last) finalName = `${first} ${last}`.trim();
+        
+        // Priority 1: Real Name
+        if (first || last) {
+            finalName = `${first} ${last}`.trim();
+        } 
+        // Priority 2: Customer Email (The Fix!)
+        else if (order.customer.email) {
+            finalName = order.customer.email;
+        }
       }
-      
+
+      // Priority 3: Billing Name
       if (finalName === "Guest" && order.billing_address) {
         finalName = order.billing_address.name || finalName;
       }
-      if (finalName === "Guest" && order.shipping_address) {
-        finalName = order.shipping_address.name || finalName;
-      }
-      if (finalName === "Guest" && order.email) {
-        finalName = order.email;
-      }
 
-      // --- FIX: CHECK IF CUSTOMER EXISTS BEFORE CREATING ---
+      // 2. Create/Update Customer
       const existingCustomer = await prisma.customer.findFirst({
-        where: { 
-          shopifyId: customerId,
-          tenantId: tenant.id
-        }
+        where: { shopifyId: customerId, tenantId: tenant.id }
       });
 
       if (!existingCustomer) {
@@ -82,17 +77,15 @@ export async function POST(req: Request) {
           }
         });
       } else {
-        // Optional: Update spend if they already exist
+        // Update spend
         await prisma.customer.update({
             where: { id: existingCustomer.id },
-            data: { 
-                totalSpent: existingCustomer.totalSpent + parseFloat(order.total_price) 
-            }
+            data: { totalSpent: existingCustomer.totalSpent + parseFloat(order.total_price) }
         });
       }
     }
 
-    return NextResponse.json({ success: true, message: `Synced ${orders.length} orders successfully!` });
+    return NextResponse.json({ success: true, message: `Synced ${orders.length} orders!` });
   } catch (error: any) {
     console.error("Sync Error:", error.message);
     return NextResponse.json({ success: false, error: error.message }, { status: 500 });
