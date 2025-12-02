@@ -19,7 +19,7 @@ export async function POST(req: Request) {
     });
 
     const orders = response.data.orders;
-    console.log(`Fetched ${orders.length} orders from Shopify`); // Debug Log
+    console.log(`Fetched ${orders.length} orders from Shopify`);
 
     for (const order of orders) {
       // 1. Create Order safely
@@ -38,35 +38,50 @@ export async function POST(req: Request) {
         });
       }
 
-      // --- NAME HUNTING LOGIC ---
+      // --- ULTIMATE NAME FINDER ---
       let finalName = "Guest"; 
       let customerId = "guest_" + order.id;
 
+      // Debug: Print what Shopify actually sent us for this order
+      console.log(`DEBUG ORDER ${order.id}:`, JSON.stringify(order.customer));
+
       if (order.customer) {
         customerId = String(order.customer.id);
-        const first = order.customer.first_name || '';
-        const last = order.customer.last_name || '';
+        const first = order.customer.first_name;
+        const last = order.customer.last_name;
         
-        // Strategy A: Customer Object
+        // 1. Check Standard Name
         if (first || last) {
-            finalName = `${first} ${last}`.trim();
+            finalName = `${first || ''} ${last || ''}`.trim();
         } 
-        // Strategy B: Customer Email
+        // 2. Check Customer Email
         else if (order.customer.email) {
             finalName = order.customer.email;
         }
+        // 3. Check Default Address (Common in Test Data)
+        else if (order.customer.default_address) {
+             const defFirst = order.customer.default_address.first_name;
+             const defLast = order.customer.default_address.last_name;
+             if (defFirst || defLast) {
+                 finalName = `${defFirst || ''} ${defLast || ''}`.trim();
+             }
+        }
       }
 
-      // Strategy C: Billing/Shipping
+      // 4. Check Top-Level Order Email
+      if (finalName === "Guest" && order.email) {
+        finalName = order.email;
+      }
+      // 5. Check Contact Email
+      if (finalName === "Guest" && order.contact_email) {
+        finalName = order.contact_email;
+      }
+      // 6. Check Billing Address
       if (finalName === "Guest" && order.billing_address?.name) {
         finalName = order.billing_address.name;
       }
-      if (finalName === "Guest" && order.shipping_address?.name) {
-        finalName = order.shipping_address.name;
-      }
 
-      // Debug Log: Check what name we actually found
-      console.log(`Order ${order.id}: Found Name = "${finalName}"`);
+      console.log(`FINAL DECISION for Order ${order.id}: "${finalName}"`);
 
       // 2. Customer Logic (Create OR Fix)
       const existingCustomer = await prisma.customer.findFirst({
@@ -74,7 +89,6 @@ export async function POST(req: Request) {
       });
 
       if (!existingCustomer) {
-        // Create new
         await prisma.customer.create({
           data: {
             shopifyId: customerId,
@@ -84,12 +98,11 @@ export async function POST(req: Request) {
           }
         });
       } else {
-        // UPDATE: Fix the name if it was "Guest" before!
         await prisma.customer.update({
             where: { id: existingCustomer.id },
             data: { 
                 totalSpent: existingCustomer.totalSpent + parseFloat(order.total_price),
-                name: finalName // <--- THIS FORCES THE NAME FIX
+                name: finalName // Force update the name
             }
         });
       }
