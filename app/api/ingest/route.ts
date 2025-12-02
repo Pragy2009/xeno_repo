@@ -14,15 +14,15 @@ export async function POST(req: Request) {
       create: { name: shopUrl, email: email }
     });
 
-    // Fetch orders (limit 10)
     const response = await axios.get(`https://${shopUrl}/admin/api/2023-10/orders.json?status=any&limit=10`, {
       headers: { 'X-Shopify-Access-Token': accessToken }
     });
 
     const orders = response.data.orders;
+    console.log(`Fetched ${orders.length} orders from Shopify`); // Debug Log
 
     for (const order of orders) {
-      // 1. Create Order if not exists
+      // 1. Create Order safely
       const existingOrder = await prisma.order.findFirst({
         where: { shopifyId: String(order.id), tenantId: tenant.id }
       });
@@ -38,7 +38,7 @@ export async function POST(req: Request) {
         });
       }
 
-      // --- IMPROVED NAME LOGIC ---
+      // --- NAME HUNTING LOGIC ---
       let finalName = "Guest"; 
       let customerId = "guest_" + order.id;
 
@@ -47,27 +47,34 @@ export async function POST(req: Request) {
         const first = order.customer.first_name || '';
         const last = order.customer.last_name || '';
         
-        // Priority 1: Real Name
+        // Strategy A: Customer Object
         if (first || last) {
             finalName = `${first} ${last}`.trim();
         } 
-        // Priority 2: Customer Email (The Fix!)
+        // Strategy B: Customer Email
         else if (order.customer.email) {
             finalName = order.customer.email;
         }
       }
 
-      // Priority 3: Billing Name
-      if (finalName === "Guest" && order.billing_address) {
-        finalName = order.billing_address.name || finalName;
+      // Strategy C: Billing/Shipping
+      if (finalName === "Guest" && order.billing_address?.name) {
+        finalName = order.billing_address.name;
+      }
+      if (finalName === "Guest" && order.shipping_address?.name) {
+        finalName = order.shipping_address.name;
       }
 
-      // 2. Create/Update Customer
+      // Debug Log: Check what name we actually found
+      console.log(`Order ${order.id}: Found Name = "${finalName}"`);
+
+      // 2. Customer Logic (Create OR Fix)
       const existingCustomer = await prisma.customer.findFirst({
         where: { shopifyId: customerId, tenantId: tenant.id }
       });
 
       if (!existingCustomer) {
+        // Create new
         await prisma.customer.create({
           data: {
             shopifyId: customerId,
@@ -77,10 +84,13 @@ export async function POST(req: Request) {
           }
         });
       } else {
-        // Update spend
+        // UPDATE: Fix the name if it was "Guest" before!
         await prisma.customer.update({
             where: { id: existingCustomer.id },
-            data: { totalSpent: existingCustomer.totalSpent + parseFloat(order.total_price) }
+            data: { 
+                totalSpent: existingCustomer.totalSpent + parseFloat(order.total_price),
+                name: finalName // <--- THIS FORCES THE NAME FIX
+            }
         });
       }
     }
