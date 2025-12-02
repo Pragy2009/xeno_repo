@@ -3,7 +3,8 @@
 ## 1. Project Overview
 This is a multi-tenant Data Ingestion Service that connects to a Shopify store, pulls live data (Orders, Customers), stores it in a PostgreSQL database, and visualizes it on a dashboard.
 
-**Deployed Link:** [PASTE_YOUR_VERCEL_LINK_HERE]
+**Deployed Link:** https://xeno-eta.vercel.app/
+
 **Demo Video:** [PASTE_YOUR_LOOM_VIDEO_LINK_HERE]
 
 ## 2. Architecture
@@ -17,10 +18,8 @@ The solution uses a unified Next.js architecture to handle both the Backend API 
 * **Database:** PostgreSQL (managed by Neon.tech)
 * **ORM:** Prisma (Schema & Type safety)
 
+<img width="1007" height="860" alt="Xeno Diagram" src="https://github.com/user-attachments/assets/1bd2416d-3354-4a69-a511-8f1e690f4394" />
 
-
-[Image of Architecture Diagram]
- *(See section below for the image)*
 
 ## 3. Assumptions & Trade-offs
 * **Sync Trigger:** I assumed a manual sync (via button click) is sufficient for this MVP. In a production environment, I would use **Shopify Webhooks** (e.g., `orders/create`) to update the database in real-time.
@@ -32,7 +31,7 @@ To run this locally:
 
 1.  Clone the repo:
     ```bash
-    git clone [PASTE_YOUR_GITHUB_REPO_LINK_HERE]
+    git clone https://github.com/Pragy2009/xeno_repo
     cd xeno-assignment
     ```
 2.  Install dependencies:
