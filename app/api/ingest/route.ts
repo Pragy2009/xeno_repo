@@ -14,7 +14,6 @@ export async function POST(req: Request) {
       create: { name: shopUrl, email: email }
     });
 
-    // 1. Fetch Orders (API version upgraded to 2024-01)
     const response = await axios.get(`https://${shopUrl}/admin/api/2024-01/orders.json?status=any&limit=10`, {
       headers: { 'X-Shopify-Access-Token': accessToken }
     });
@@ -23,7 +22,7 @@ export async function POST(req: Request) {
     console.log(`Fetched ${orders.length} orders`);
 
     for (const order of orders) {
-      // Create Order
+      // 1. Create Order
       const existingOrder = await prisma.order.findFirst({
         where: { shopifyId: String(order.id), tenantId: tenant.id }
       });
@@ -39,55 +38,54 @@ export async function POST(req: Request) {
         });
       }
 
+      // --- DEBUG LOG ---
+      // This will show us EXACTLY what Shopify is sending for the customer
+      if (order.customer) {
+          console.log(`DEBUG RAW CUSTOMER DATA (Order ${order.id}):`, JSON.stringify(order.customer));
+      } else {
+          console.log(`DEBUG: Order ${order.id} has NO customer object.`);
+      }
+
       // --- NAME LOGIC ---
       let finalName = ""; 
       let customerId = "guest_" + order.id;
 
-      // 1. Check Order Data (Basic Check)
       if (order.customer) {
         customerId = String(order.customer.id);
+        
+        // 1. Try Standard Name
         if (order.customer.first_name || order.customer.last_name) {
              finalName = `${order.customer.first_name || ''} ${order.customer.last_name || ''}`;
-        } else if (order.customer.email) {
+        } 
+        // 2. Try Default Address
+        else if (order.customer.default_address) {
+             const addr = order.customer.default_address;
+             if (addr.name) finalName = addr.name;
+             else if (addr.first_name) finalName = `${addr.first_name || ''} ${addr.last_name || ''}`;
+        }
+        // 3. Try Email
+        else if (order.customer.email) {
              finalName = order.customer.email;
         }
       }
 
-      // 2. Check Addresses
+      // 4. Fallback Checks
       if (!finalName.trim() && order.billing_address?.name) finalName = order.billing_address.name;
       if (!finalName.trim() && order.shipping_address?.name) finalName = order.shipping_address.name;
       if (!finalName.trim() && order.email) finalName = order.email;
 
-      // --- THE NUCLEAR FIX: Direct Customer Fetch ---
-      // If we STILL don't have a name, and we have a Customer ID, fetch the profile directly.
-      if ((!finalName.trim() || finalName === "Guest") && order.customer?.id) {
-          try {
-            console.log(`Fetching full profile for Customer ID: ${order.customer.id}`);
-            const custRes = await axios.get(`https://${shopUrl}/admin/api/2024-01/customers/${order.customer.id}.json`, {
-                headers: { 'X-Shopify-Access-Token': accessToken }
-            });
-            const fullCust = custRes.data.customer;
-            
-            if (fullCust.first_name || fullCust.last_name) {
-                finalName = `${fullCust.first_name || ''} ${fullCust.last_name || ''}`;
-            } else if (fullCust.email) {
-                finalName = fullCust.email;
-            } else if (fullCust.default_address?.name) {
-                finalName = fullCust.default_address.name;
-            }
-            console.log(`...FOUND NAME IN PROFILE: "${finalName}"`);
-          } catch (err) {
-            console.error("Could not fetch customer profile (might be deleted/hidden).");
-          }
+      // 5. Final Fallback: Use Customer ID instead of "Guest"
+      // This ensures they at least show up as different people on the graph!
+      if (!finalName.trim() && order.customer?.id) {
+          finalName = `Customer #${order.customer.id}`; 
       }
-
-      // Final fallback
-      if (!finalName.trim()) finalName = "Guest";
-      finalName = finalName.trim();
       
-      console.log(`ORDER ${order.id} FINAL DECISION: "${finalName}"`);
+      if (!finalName.trim()) finalName = "Guest";
+      
+      finalName = finalName.trim();
+      console.log(`ORDER ${order.id} FINAL NAME: "${finalName}"`);
 
-      // 3. Save to DB
+      // 2. Save Customer
       const existingCustomer = await prisma.customer.findFirst({
         where: { shopifyId: customerId, tenantId: tenant.id }
       });
