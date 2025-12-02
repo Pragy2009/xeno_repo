@@ -38,7 +38,7 @@ export async function POST(req: Request) {
         });
       }
 
-      // --- FIXED NAME LOGIC (No 'else' traps) ---
+      // --- FIXED LOGIC: SEQUENTIAL CHECKS (NO 'ELSE') ---
       let finalName = "Guest"; 
       let customerId = "guest_" + order.id;
 
@@ -50,10 +50,9 @@ export async function POST(req: Request) {
             finalName = `${order.customer.first_name || ''} ${order.customer.last_name || ''}`.trim();
         }
         
-        // 2. Try Default Address Name (If we still don't have a name)
-        if (finalName === "Guest" && order.customer.default_address) {
+        // 2. Try Default Address Name (Only if we still don't have a name)
+        if ((finalName === "Guest" || finalName === "") && order.customer.default_address) {
              const addr = order.customer.default_address;
-             // Try 'name' property first, then first/last
              if (addr.name) {
                  finalName = addr.name;
              } else if (addr.first_name || addr.last_name) {
@@ -62,6 +61,7 @@ export async function POST(req: Request) {
         }
 
         // 3. Try Customer Email (Crucial Fallback!)
+        // This will now run EVEN IF the address check above failed.
         if ((finalName === "Guest" || finalName === "") && order.customer.email) {
             finalName = order.customer.email;
         }
@@ -72,6 +72,7 @@ export async function POST(req: Request) {
         finalName = order.email;
       }
 
+      // Debug Log
       console.log(`ORDER ${order.id} FINAL NAME: "${finalName}"`);
 
       // 2. Save/Update Customer
@@ -89,11 +90,12 @@ export async function POST(req: Request) {
           }
         });
       } else {
+        // FORCE UPDATE to fix "Guest"
         await prisma.customer.update({
             where: { id: existingCustomer.id },
             data: { 
                 totalSpent: existingCustomer.totalSpent + parseFloat(order.total_price),
-                name: finalName // Force update
+                name: finalName 
             }
         });
       }
