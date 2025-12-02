@@ -1,4 +1,3 @@
-// 1. Config for Vercel & Local
 generator client {
   provider      = "prisma-client-js"
   binaryTargets = ["native", "rhel-openssl-3.0.x"]
@@ -9,38 +8,28 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-// 2. The Data Models
 model Tenant {
-  id        Int      @id @default(autoincrement())
+  id        String     @id @default(uuid())
   name      String
-  email     String   @unique
-  createdAt DateTime @default(now())
-
+  email     String     @unique
   orders    Order[]
   customers Customer[]
 }
 
-model Customer {
-  id         Int     @id @default(autoincrement())
-  shopifyId  String  @unique
-  name       String
-  totalSpent Float   @default(0)
-  tenantId   Int
-  tenant     Tenant  @relation(fields: [tenantId], references: [id])
-  orders     Order[]
+model Order {
+  id        String   @id @default(uuid())
+  shopifyId String   // No @unique here
+  amount    Float
+  date      DateTime
+  tenantId  String
+  tenant    Tenant   @relation(fields: [tenantId], references: [id])
 }
 
-model Order {
-  id        Int      @id @default(autoincrement())
-  shopifyId String   @unique
-  amount    Float    @default(0)
-  date      DateTime
-  tenantId  Int
-  tenant    Tenant   @relation(fields: [tenantId], references: [id])
-
-  // Link the order to a customer (nullable if order might have no customer)
-  customerId Int? // nullable to allow guest orders without a customer row
-  customer   Customer? @relation(fields: [customerId], references: [id])
-
-  createdAt DateTime @default(now())
+model Customer {
+  id         String @id @default(uuid())
+  shopifyId  String // No @unique here
+  name       String
+  totalSpent Float
+  tenantId   String
+  tenant     Tenant @relation(fields: [tenantId], references: [id])
 }
