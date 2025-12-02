@@ -38,41 +38,56 @@ export async function POST(req: Request) {
         });
       }
 
-      // --- FIXED LOGIC: SEQUENTIAL CHECKS (NO 'ELSE') ---
-      let finalName = "Guest"; 
+      // --- THE ULTIMATE NAME FINDER ---
+      let finalName = ""; 
       let customerId = "guest_" + order.id;
 
+      // 1. Check Customer Object
       if (order.customer) {
         customerId = String(order.customer.id);
-        
-        // 1. Try Customer Object Name
         if (order.customer.first_name || order.customer.last_name) {
-            finalName = `${order.customer.first_name || ''} ${order.customer.last_name || ''}`.trim();
+            finalName = `${order.customer.first_name || ''} ${order.customer.last_name || ''}`;
         }
-        
-        // 2. Try Default Address Name (Only if we still don't have a name)
-        if ((finalName === "Guest" || finalName === "") && order.customer.default_address) {
+        // 2. Check Customer Default Address
+        else if (order.customer.default_address) {
              const addr = order.customer.default_address;
-             if (addr.name) {
-                 finalName = addr.name;
-             } else if (addr.first_name || addr.last_name) {
-                 finalName = `${addr.first_name || ''} ${addr.last_name || ''}`.trim();
-             }
+             if (addr.name) finalName = addr.name;
+             else if (addr.first_name || addr.last_name) finalName = `${addr.first_name || ''} ${addr.last_name || ''}`;
         }
-
-        // 3. Try Customer Email (Crucial Fallback!)
-        // This will now run EVEN IF the address check above failed.
-        if ((finalName === "Guest" || finalName === "") && order.customer.email) {
+        // 3. Check Customer Email
+        else if (order.customer.email) {
             finalName = order.customer.email;
         }
       }
 
-      // 4. Try Top-level Email
-      if ((finalName === "Guest" || finalName === "") && order.email) {
-        finalName = order.email;
+      // 4. Check Billing Address (Common in Test Data!)
+      if (!finalName.trim() && order.billing_address) {
+          if (order.billing_address.name) finalName = order.billing_address.name;
+          else if (order.billing_address.first_name) finalName = `${order.billing_address.first_name} ${order.billing_address.last_name || ''}`;
       }
 
-      // Debug Log
+      // 5. Check Shipping Address
+      if (!finalName.trim() && order.shipping_address) {
+          if (order.shipping_address.name) finalName = order.shipping_address.name;
+          else if (order.shipping_address.first_name) finalName = `${order.shipping_address.first_name} ${order.shipping_address.last_name || ''}`;
+      }
+
+      // 6. Check Order Email
+      if (!finalName.trim() && order.email) {
+          finalName = order.email;
+      }
+      
+      // 7. Check Contact Email
+      if (!finalName.trim() && order.contact_email) {
+          finalName = order.contact_email;
+      }
+
+      // Final Fallback
+      if (!finalName.trim()) {
+          finalName = "Guest";
+      }
+
+      finalName = finalName.trim();
       console.log(`ORDER ${order.id} FINAL NAME: "${finalName}"`);
 
       // 2. Save/Update Customer
@@ -90,7 +105,7 @@ export async function POST(req: Request) {
           }
         });
       } else {
-        // FORCE UPDATE to fix "Guest"
+        // Force Update Name
         await prisma.customer.update({
             where: { id: existingCustomer.id },
             data: { 
