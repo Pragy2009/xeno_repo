@@ -5,7 +5,7 @@ This is a multi-tenant Data Ingestion Service that connects to a Shopify store, 
 
 **Deployed Link:** https://xeno-eta.vercel.app/
 
-**Demo Video:** [PASTE_YOUR_LOOM_VIDEO_LINK_HERE]
+**Demo Video:** https://www.loom.com/share/a53c6a5cbdbb4ab9b614d7d517834488
 
 ## 2. Architecture
 The solution uses a unified Next.js architecture to handle both the Backend API and Frontend UI.
