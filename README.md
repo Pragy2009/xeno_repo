@@ -18,7 +18,7 @@ The solution uses a unified Next.js architecture to handle both the Backend API 
 * **Database:** PostgreSQL (managed by Neon.tech)
 * **ORM:** Prisma (Schema & Type safety)
 
-<img width="1007" height="860" alt="Xeno Diagram" src="https://github.com/user-attachments/assets/1bd2416d-3354-4a69-a511-8f1e690f4394" />
+<img width="1610" height="2015" alt="Untitled diagram-2025-12-06-000407" src="https://github.com/user-attachments/assets/1d05c622-2e3d-4dba-b3f4-03f67957059a" />
 
 
 ## 3. Assumptions & Trade-offs
